@@ -35,27 +35,35 @@ jobs:
             settings.pluginManagement { repositories { maven { url 'https://maven.aliyun.com/repository/google' }; maven { url 'https://maven.aliyun.com/repository/central' }; maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }; maven { url 'https://maven.aliyun.com/repository/public' }; google(); mavenCentral() } } }
           EOF
 
-      - name: Build
+      - name: Clean and Build
         timeout-minutes: 45
         run: |
           chmod +x gradlew
+          ./gradlew clean
           ./gradlew assembleDebug --no-daemon 2>&1 | tee build.log
           echo "BUILD_OK=$?" >> $GITHUB_ENV
 
-      - name: Upload build outputs
-        if: env.BUILD_OK == '0'
+      - name: Debug APK location
+        run: |
+          echo "=== Searching entire app/build for APKs ==="
+          find app/build -name "*.apk" 2>/dev/null
+          echo "=== app/build/outputs ==="
+          ls -laR app/build/outputs/ 2>/dev/null
+          echo "=== app/build ==="
+          ls -la app/build/ 2>/dev/null
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-outputs
-          path: app/build/outputs/
-          if-no-files-found: warn
+          name: apk-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: ignore
 
       - name: Create Release
-        if: env.BUILD_OK == '0'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
-          files: app/build/outputs/**/*
+          files: app/build/outputs/apk/debug/*.apk
           fail_on_unmatched_files: false
           token: ${{ secrets.GITHUB_TOKEN }}
