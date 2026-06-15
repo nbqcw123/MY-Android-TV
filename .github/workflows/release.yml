@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -18,23 +19,31 @@ jobs:
         with:
           distribution: "zulu"
           java-version: "17"
+          cache: "gradle"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
         with:
-          accept-android-sdk-licenses: true
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
-      - name: Grant gradlew permission
-        run: chmod +x ./gradlew
-
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Build APK
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --offline || ./gradlew assembleDebug --no-daemon
 
       - name: Get version
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >>$GITHUB_OUTPUT
 
-      - name: Rename and collect APKs
+      - name: Rename APKs
         run: |
           mkdir -p artifacts
           for file in app/build/outputs/apk/debug/*.apk; do
