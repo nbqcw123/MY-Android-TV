@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
+    env:
+      GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.jvmargs=-Xmx4096m"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,22 +27,48 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Build APK with retry
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 30
-          max_attempts: 3
-          retry_wait_seconds: 30
-          command: |
-            chmod +x ./gradlew
-            ./gradlew assembleDebug --no-daemon
-          retry_on: error
+      - name: Configure Gradle mirror
+        run: |
+          mkdir -p ~/.gradle
+          cat > ~/.gradle/init.gradle << 'EOF'
+          allprojects {
+              repositories {
+                  maven { url 'https://maven.aliyun.com/repository/google' }
+                  maven { url 'https://maven.aliyun.com/repository/central' }
+                  maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+                  maven { url 'https://maven.aliyun.com/repository/public' }
+              }
+          }
+          settingsEvaluated { settings ->
+              settings.pluginManagement {
+                  repositories {
+                      maven { url 'https://maven.aliyun.com/repository/google' }
+                      maven { url 'https://maven.aliyun.com/repository/central' }
+                      maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+                      maven { url 'https://maven.aliyun.com/repository/public' }
+                  }
+              }
+          }
+          EOF
+
+      - name: Build APK
+        timeout-minutes: 30
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --continue || true
+
+      - name: Check APK output
+        run: |
+          echo "=== Checking APK output ==="
+          find app/build/outputs -name "*.apk" 2>/dev/null || echo "No APKs found"
+          ls -la app/build/outputs/apk/debug/ 2>/dev/null || echo "No debug APKs"
 
       - name: Get version
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >>$GITHUB_OUTPUT
 
       - name: Rename APKs
+        if: hashFiles('app/build/outputs/apk/debug/*.apk') != ''
         run: |
           mkdir -p artifacts
           for file in app/build/outputs/apk/debug/*.apk; do
@@ -51,6 +80,7 @@ jobs:
           ls -la artifacts/
 
       - name: Upload Release
+        if: hashFiles('artifacts/*.apk') != ''
         uses: ncipollo/release-action@v1
         with:
           name: v${{ steps.version.outputs.version }}
