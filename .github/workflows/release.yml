@@ -55,7 +55,7 @@ jobs:
         timeout-minutes: 30
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon --continue 2>&1 | tail -20
+          ./gradlew assembleDebug --no-daemon 2>&1 | tail -30
           echo "=== Build output ==="
           find app/build -name "*.apk" 2>/dev/null || echo "No APKs found in app/build"
           ls -laR app/build/outputs/ 2>/dev/null || echo "No outputs dir"
@@ -73,15 +73,15 @@ jobs:
         run: |
           mkdir -p artifacts
           found=0
-          for file in app/build/outputs/apk/debug/*.apk; do
+          while IFS= read -r file; do
             if [ -f "$file" ]; then
               basename=$(basename "$file" .apk)
               mv "$file" "artifacts/MY-Android-TV-${{ steps.version.outputs.version }}-${basename}.apk"
               found=1
             fi
-          done
+          done < <(find app/build -type f -name "*.apk" 2>/dev/null)
           if [ "$found" -eq 0 ]; then
-            echo "❌ No APKs found in app/build/outputs/apk/debug/"
+            echo "❌ No APKs found"
             exit 1
           fi
           ls -la artifacts/
