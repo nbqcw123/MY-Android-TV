@@ -43,15 +43,19 @@ jobs:
           echo "BUILD_OK=$?" >> $GITHUB_ENV
 
       - name: Find and copy APKs
+        shell: bash
         run: |
+          set +e
           echo "Build exit code: $BUILD_OK"
           mkdir -p artifacts
+          find app/build -name "*.apk" -type f 2>/dev/null
           find app/build -name "*.apk" -type f -exec cp {} artifacts/ \; 2>/dev/null
           echo "=== Artifacts ==="
-          ls -la artifacts/ 2>/dev/null || echo "No artifacts"
+          ls -la artifacts/
+          echo "APK_COUNT=$(ls artifacts/*.apk 2>/dev/null | wc -l)" >> $GITHUB_ENV
 
       - name: Create Release
-        if: env.BUILD_OK == '0'
+        if: env.BUILD_OK == '0' && env.APK_COUNT != '0'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
