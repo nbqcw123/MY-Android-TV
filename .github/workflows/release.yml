@@ -40,31 +40,22 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon 2>&1 | tee build.log
-          echo "EXIT_CODE=${PIPESTATUS[0]}" >> $GITHUB_ENV
+          echo "BUILD_OK=$?" >> $GITHUB_ENV
 
-      - name: Show APK location
-        if: always()
+      - name: Find and copy APKs
         run: |
-          echo "=== Build exit code: ${EXIT_CODE} ==="
-          echo "=== Searching for APKs ==="
-          find app/build -name "*.apk" -type f 2>/dev/null
-          echo "=== outputs directory ==="
-          ls -laR app/build/outputs/ 2>/dev/null || echo "No outputs dir"
-
-      - name: Upload APK artifact
-        if: env.EXIT_CODE == '0'
-        uses: actions/upload-artifact@v4
-        with:
-          name: apk
-          path: app/build/outputs/apk/**/*.apk
-          if-no-files-found: warn
+          echo "Build exit code: $BUILD_OK"
+          mkdir -p artifacts
+          find app/build -name "*.apk" -type f -exec cp {} artifacts/ \; 2>/dev/null
+          echo "=== Artifacts ==="
+          ls -la artifacts/ 2>/dev/null || echo "No artifacts"
 
       - name: Create Release
-        if: env.EXIT_CODE == '0'
+        if: env.BUILD_OK == '0'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
-          files: app/build/outputs/apk/**/*.apk
+          files: artifacts/*.apk
           fail_on_unmatched_files: false
           token: ${{ secrets.GITHUB_TOKEN }}
