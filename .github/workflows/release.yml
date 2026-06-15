@@ -42,27 +42,20 @@ jobs:
           ./gradlew assembleDebug --no-daemon 2>&1 | tee build.log
           echo "BUILD_OK=$?" >> $GITHUB_ENV
 
-      - name: Find and copy APKs
-        id: apk
-        run: |
-          mkdir -p artifacts
-          # Find all APKs and copy
-          count=0
-          while IFS= read -r -d '' f; do
-            echo "Found: $f"
-            cp "$f" "artifacts/$(basename $f)"
-            count=$((count+1))
-          done < <(find app/build -name "*.apk" -type f -print0 2>/dev/null)
-          echo "Found $count APK(s)"
-          ls -la artifacts/
-          echo "count=$count" >> $GITHUB_OUTPUT
+      - name: Upload build outputs
+        if: env.BUILD_OK == '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-outputs
+          path: app/build/outputs/
+          if-no-files-found: warn
 
       - name: Create Release
-        if: steps.apk.outputs.count != '0'
+        if: env.BUILD_OK == '0'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
-          files: artifacts/*.apk
+          files: app/build/outputs/**/*
           fail_on_unmatched_files: false
           token: ${{ secrets.GITHUB_TOKEN }}
