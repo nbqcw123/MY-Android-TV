@@ -39,16 +39,16 @@ jobs:
         timeout-minutes: 55
         run: |
           chmod +x gradlew
-          # Retry up to 3 times on failure
           for i in 1 2 3; do
             echo "=== Build attempt $i ==="
-            ./gradlew assembleDebug --no-daemon --info 2>&1 | tail -50
-            EXIT_CODE=${PIPESTATUS[0]}
+            ./gradlew assembleDebug --no-daemon > /tmp/build.log 2>&1
+            EXIT_CODE=$?
+            tail -100 /tmp/build.log
             if [ "$EXIT_CODE" -eq 0 ]; then
               echo "BUILD_OK=0" >> $GITHUB_ENV
               break
             fi
-            echo "Build failed with exit code $EXIT_CODE, retrying..."
+            echo "Build failed (exit $EXIT_CODE), retry in 30s..."
             sleep 30
           done
           if [ "$EXIT_CODE" -ne 0 ]; then
