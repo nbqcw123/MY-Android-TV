@@ -8,7 +8,8 @@
 
 </div>
     <p>使用Android原生开发的电视直播软件</p>
-    <p><b>v1.4.4</b></p>
+    <p><b>v1.4.5</b></p>
+    <p>基于 <a href="https://github.com/yaoxieyoulei/mytv-android">yaoxieyoulei/mytv-android</a> 修改</p>
 
 <img src="./screenshots/Screenshot_panel.png" width="96%"/>
 <br/>
@@ -129,6 +130,7 @@ QQ群: 807328577
 
 ## 致谢
 
+- [mytv-android](https://github.com/yaoxieyoulei/mytv-android) - 原始项目，本仓库基于此修改
 - [my-tv](https://github.com/lizongying/my-tv)
 - [参考设计稿](https://github.com/lizongying/my-tv/issues/594)
 - [IPV6直播源](https://github.com/zhumeng11/IPTV)
