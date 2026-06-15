@@ -20,40 +20,72 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
-      - name: Configure mirrors
+      - name: Accept SDK licenses
         run: |
           mkdir -p $ANDROID_HOME/licenses
           echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > $ANDROID_HOME/licenses/android-sdk-license
+          echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> $ANDROID_HOME/licenses/android-sdk-license
+          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" >> $ANDROID_HOME/licenses/android-sdk-license
 
+      - name: Setup Gradle mirrors
+        run: |
           mkdir -p ~/.gradle
           cat > ~/.gradle/init.gradle << 'EOF'
           allprojects {
-            buildscript { repositories { maven { url 'https://maven.aliyun.com/repository/google' }; maven { url 'https://maven.aliyun.com/repository/central' }; maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }; maven { url 'https://maven.aliyun.com/repository/public' }; google(); mavenCentral() } }
-            repositories { maven { url 'https://maven.aliyun.com/repository/google' }; maven { url 'https://maven.aliyun.com/repository/central' }; maven { url 'https://maven.aliyun.com/repository/public' }; google(); mavenCentral() } }
+            buildscript { repositories {
+              maven { url 'https://maven.aliyun.com/repository/google' }
+              maven { url 'https://maven.aliyun.com/repository/central' }
+              maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+              maven { url 'https://maven.aliyun.com/repository/public' }
+              google(); mavenCentral()
+            } }
+            repositories {
+              maven { url 'https://maven.aliyun.com/repository/google' }
+              maven { url 'https://maven.aliyun.com/repository/central' }
+              maven { url 'https://maven.aliyun.com/repository/public' }
+              google(); mavenCentral()
+            } }
           }
           settingsEvaluated { settings ->
-            settings.pluginManagement { repositories { maven { url 'https://maven.aliyun.com/repository/google' }; maven { url 'https://maven.aliyun.com/repository/central' }; maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }; maven { url 'https://maven.aliyun.com/repository/public' }; google(); mavenCentral() } } }
+            settings.pluginManagement { repositories {
+              maven { url 'https://maven.aliyun.com/repository/google' }
+              maven { url 'https://maven.aliyun.com/repository/central' }
+              maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+              maven { url 'https://maven.aliyun.com/repository/public' }
+              google(); mavenCentral()
+            } } }
           EOF
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/libs.versions.toml') }}
+          restore-keys: gradle-
 
       - name: Build
         timeout-minutes: 55
         run: |
           chmod +x gradlew
-          for i in 1 2 3; do
-            echo "=== Build attempt $i ==="
-            ./gradlew assembleDebug --no-daemon > /tmp/build.log 2>&1
-            EXIT_CODE=$?
-            tail -100 /tmp/build.log
+          echo "=== Build attempt 1 ==="
+          ./gradlew assembleDebug --no-daemon --info 2>&1 | tee /tmp/build.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          if [ "$EXIT_CODE" -eq 0 ]; then
+            echo "BUILD_OK=0" >> $GITHUB_ENV
+          else
+            echo "Build failed (exit $EXIT_CODE), retry..."
+            sleep 30
+            echo "=== Build attempt 2 ==="
+            ./gradlew assembleDebug --no-daemon --info 2>&1 | tee /tmp/build.log
+            EXIT_CODE=${PIPESTATUS[0]}
             if [ "$EXIT_CODE" -eq 0 ]; then
               echo "BUILD_OK=0" >> $GITHUB_ENV
-              break
+            else
+              echo "BUILD_OK=1" >> $GITHUB_ENV
+              exit 1
             fi
-            echo "Build failed (exit $EXIT_CODE), retry in 30s..."
-            sleep 30
-          done
-          if [ "$EXIT_CODE" -ne 0 ]; then
-            echo "BUILD_OK=1" >> $GITHUB_ENV
-            exit 1
           fi
 
       - name: Prepare APK
