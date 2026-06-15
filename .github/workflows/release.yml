@@ -70,16 +70,16 @@ jobs:
         run: |
           chmod +x gradlew
           echo "=== Build attempt 1 ==="
-          ./gradlew assembleDebug --no-daemon --info 2>&1 | tee /tmp/build.log
-          EXIT_CODE=${PIPESTATUS[0]}
+          ./gradlew assembleDebug --no-daemon 2>&1
+          EXIT_CODE=$?
           if [ "$EXIT_CODE" -eq 0 ]; then
             echo "BUILD_OK=0" >> $GITHUB_ENV
           else
-            echo "Build failed (exit $EXIT_CODE), retry..."
+            echo "Build failed (exit $EXIT_CODE), retry in 30s..."
             sleep 30
             echo "=== Build attempt 2 ==="
-            ./gradlew assembleDebug --no-daemon --info 2>&1 | tee /tmp/build.log
-            EXIT_CODE=${PIPESTATUS[0]}
+            ./gradlew assembleDebug --no-daemon 2>&1
+            EXIT_CODE=$?
             if [ "$EXIT_CODE" -eq 0 ]; then
               echo "BUILD_OK=0" >> $GITHUB_ENV
             else
