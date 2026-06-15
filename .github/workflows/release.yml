@@ -55,32 +55,38 @@ jobs:
         timeout-minutes: 30
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon --continue || true
+          ./gradlew assembleDebug --no-daemon --continue 2>&1 | tail -20
+          echo "=== Build output ==="
+          find app/build -name "*.apk" 2>/dev/null || echo "No APKs found in app/build"
+          ls -laR app/build/outputs/ 2>/dev/null || echo "No outputs dir"
 
       - name: Check APK output
         run: |
           echo "=== Checking APK output ==="
-          find app/build/outputs -name "*.apk" 2>/dev/null || echo "No APKs found"
-          ls -la app/build/outputs/apk/debug/ 2>/dev/null || echo "No debug APKs"
+          find app/build -type f -name "*.apk" 2>/dev/null || echo "No APKs found"
 
       - name: Get version
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >>$GITHUB_OUTPUT
 
       - name: Rename APKs
-        if: hashFiles('app/build/outputs/apk/debug/*.apk') != ''
         run: |
           mkdir -p artifacts
+          found=0
           for file in app/build/outputs/apk/debug/*.apk; do
             if [ -f "$file" ]; then
               basename=$(basename "$file" .apk)
               mv "$file" "artifacts/MY-Android-TV-${{ steps.version.outputs.version }}-${basename}.apk"
+              found=1
             fi
           done
+          if [ "$found" -eq 0 ]; then
+            echo "❌ No APKs found in app/build/outputs/apk/debug/"
+            exit 1
+          fi
           ls -la artifacts/
 
       - name: Upload Release
-        if: hashFiles('artifacts/*.apk') != ''
         uses: ncipollo/release-action@v1
         with:
           name: v${{ steps.version.outputs.version }}
