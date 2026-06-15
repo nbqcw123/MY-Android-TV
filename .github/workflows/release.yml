@@ -37,27 +37,17 @@ jobs:
 
       - name: Build
         timeout-minutes: 45
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
-          echo "BUILD_OK=$?" >> $GITHUB_ENV
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
 
-      - name: Create Release with gh CLI
-        if: env.BUILD_OK == '0'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepare APK
         run: |
-          echo "=== Finding APKs ==="
-          find app/build -name "*.apk" -type f || true
-          echo "=== Creating release ==="
-          shopt -s globstar || true
-          ls -la app/build/outputs/apk/**/*.apk 2>/dev/null || echo "No APKs via glob"
-          # Use find to get APK list
-          APKS=$(find app/build -name "*.apk" -type f | tr '\n' ' ')
-          if [ -n "$APKS" ]; then
-            echo "APKs: $APKS"
-            gh release create ${{ github.ref_name }} --title "${{ github.ref_name }}" --generate-notes $APKS
-          else
-            echo "No APKs found!"
-            exit 1
-          fi
+          mkdir -p output
+          find app/build -name "*.apk" -type f -exec cp {} output/ \;
+          echo "=== APKs ==="
+          ls -la output/
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-files
+          path: output/*.apk
