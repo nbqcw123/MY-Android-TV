@@ -1,4 +1,4 @@
-name: Release
+name: Build Release
 
 on:
   push:
@@ -10,51 +10,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 代码迁出
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 构建Java环境
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: "17"
 
-      - name: 解码生成 jks
-        run: echo $KEYSTORE_BASE64 | base64 -di > app/keystore.jks
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: 生成apk
+      - name: Build APK
         run: chmod +x ./gradlew && ./gradlew assembleRelease
 
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD}}
-
-      - name: 获取版本号
+      - name: Get version
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >>$GITHUB_OUTPUT
 
-      - name: 重命名应用
-        run: |
-          for file in app/build/outputs/apk/release/app-*.apk; do
-            if [[ $file =~ app-(.?*)release.apk ]]; then
-              new_file_name="app/build/outputs/apk/release/mytv-android-${BASH_REMATCH[1]}${{ steps.version.outputs.version }}.apk"
-              mv "$file" "$new_file_name"
-            fi
-          done
-
-      - name: Prepare artifacts
+      - name: Rename APK
         run: |
           mkdir artifacts
-          cp app/build/outputs/apk/release/*.apk artifacts/
+          for file in app/build/outputs/apk/release/*.apk; do
+            if [[ $file =~ app-(.?*)release.apk ]]; then
+              abi="${BASH_REMATCH[1]}"
+              mv "$file" "artifacts/MY-Android-TV-${{ steps.version.outputs.version }}-${abi}.apk"
+            fi
+          done
 
       - name: Upload Release
         uses: ncipollo/release-action@v1
         with:
           name: v${{ steps.version.outputs.version }}
-          token: ${{ secrets.GIT_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           omitBodyDuringUpdate: true
           omitNameDuringUpdate: true
           omitPrereleaseDuringUpdate: true
